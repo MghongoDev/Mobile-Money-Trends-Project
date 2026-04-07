@@ -51,29 +51,71 @@ High R² indicates mobile money adoption patterns are highly predictable using h
 
 The project automatically fetches adoption data from:
 - **API**: ourworldindata.org (share-adults-bank-account-financial-institution-mobile-money)
-- **Metrics**: 
+- **Metrics**:
   - Mobile money account adoption share (%)
   - Financial institution account adoption share (%)
   - Dual account ownership
 
+## Architecture
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Extract   │ -> │  Transform  │ -> │    Load     │
+│             │    │             │    │             │
+│ - API Data  │    │ - Cleaning  │    │ - Analysis  │
+│ - Economic  │    │ - Features  │    │ - Modeling  │
+│   Indicators│    │             │    │             │
+└─────────────┘    └─────────────┘    └─────────────┘
+       │                   │                   │
+       v                   v                   v
+   dashboard.py        api.py           modeling.py
+```
+
 ## Project Structure
 
 - `mobile_money_project/`
-  - `data.py`: API fetching from Our World in Data + caching
+  - `data.py`: API fetching from Our World in Data + World Bank + caching
   - `preprocessing.py`: feature engineering and data cleaning
   - `analysis.py`: trend summaries and statistics
-  - `modeling.py`: gradient boosting regression forecasting
+  - `modeling.py`: gradient boosting regression forecasting + model comparison
 - `run_analysis.py`: main analysis pipeline
+- `dashboard.py`: HTML dashboard generator
+- `api.py`: FastAPI REST endpoints
 - `notebooks/mobile_money_trends.ipynb`: interactive exploration
+- `tests/`: unit and integration tests
+- `docs/`: detailed documentation
 - `data/`: auto-downloaded datasets
 - `results/`: forecasts and model metrics
 
+## API Endpoints
+
+The project includes a REST API built with FastAPI:
+
+- `GET /`: Root endpoint with API info
+- `GET /summary`: Global summary statistics
+- `GET /forecast?horizon=12`: Forecast data with configurable horizon
+- `GET /country/{country}`: Country-specific data and summary
+- `GET /dashboard`: Generated HTML dashboard
+
+Run the API with: `uvicorn api:app --reload`
+
+## Testing
+
+Run tests with pytest:
+
+```bash
+pytest
+```
+
+Tests cover ETL pipeline, model training, and API endpoints.
+
 ## Getting Started
 
-1. Install dependencies:
+1. Install dependencies and set up the development environment:
 
 ```bash
 uv sync
+uv pip install -e .
 ```
 
 2. Run the pipeline:
@@ -99,7 +141,23 @@ notebooks/mobile_money_trends.ipynb
 python dashboard.py
 ```
 
-This command builds `dashboard.html` in the project root and opens it in your browser.
+5. Run the API:
+
+```bash
+uvicorn api:app --reload
+```
+
+## Deployment
+
+### Local Development
+
+Run the API locally with uvicorn:
+
+```bash
+uvicorn api:app --reload
+```
+
+The dashboard can be generated and served via the API endpoint `/dashboard`.
 
 ## Interactive Dashboard
 

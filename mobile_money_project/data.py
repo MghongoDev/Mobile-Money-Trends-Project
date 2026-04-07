@@ -44,6 +44,54 @@ def fetch_mobile_money_data_from_api() -> pd.DataFrame:
         return None
 
 
+def fetch_economic_indicators_from_api(countries: list[str] = None) -> pd.DataFrame:
+    """Fetch real-time economic indicators from World Bank API."""
+    if countries is None:
+        countries = ["KEN", "ZAF", "NGA", "GHA"]  # Sample African countries
+    
+    indicators = {
+        "NY.GDP.PCAP.CD": "gdp_per_capita",
+        "FP.CPI.TOTL.ZG": "inflation_rate",
+        "SL.UEM.TOTL.ZS": "unemployment_rate"
+    }
+    
+    all_data = []
+    base_url = "http://api.worldbank.org/v2/country/{}/indicator/{}?format=json&per_page=1000"
+    
+    for country in countries:
+        for indicator_code, indicator_name in indicators.items():
+            url = base_url.format(country, indicator_code)
+            try:
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                
+                if len(data) > 1 and data[1]:
+                    for entry in data[1]:
+                        if entry.get("value") is not None:
+                            all_data.append({
+                                "country": country,
+                                "indicator": indicator_name,
+                                "year": int(entry["date"]),
+                                "value": float(entry["value"])
+                            })
+            except Exception as e:
+                print(f"[WARNING] Failed to fetch {indicator_name} for {country}: {e}")
+    
+    if all_data:
+        df = pd.DataFrame(all_data)
+        df_pivot = df.pivot_table(
+            index=["country", "year"], 
+            columns="indicator", 
+            values="value"
+        ).reset_index()
+        print(f"[INFO] Successfully fetched economic indicators for {len(df_pivot)} country-year combinations")
+        return df_pivot
+    else:
+        print("[WARNING] No economic indicators fetched")
+        return pd.DataFrame()
+
+
 def generate_synthetic_mobile_money_data(
     start_date: str = "2016-01-01",
     periods: int = 120,
@@ -86,7 +134,7 @@ def generate_synthetic_mobile_money_data(
     return data
 
 
-def load_mobile_money_data(path: str = "data/sample_mobile_money_data.csv") -> pd.DataFrame:
+def load_mobile_money_data(path: str = "data/sample_mobile_money_data.csv", include_economic: bool = False) -> pd.DataFrame:
     """Load the mobile money dataset from API or disk fallback."""
     # Try to fetch from API first
     df = fetch_mobile_money_data_from_api()
@@ -94,16 +142,24 @@ def load_mobile_money_data(path: str = "data/sample_mobile_money_data.csv") -> p
     if df is not None and not df.empty:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         df.to_csv(path, index=False)
-        return df
+    else:
+        # Fallback to disk if available
+        if os.path.exists(path):
+            print(f"[INFO] Loaded data from {path}")
+            df = pd.read_csv(path)
+        else:
+            # Generate synthetic data as last resort
+            print("[INFO] Generating synthetic fallback data")
+            df = generate_synthetic_mobile_money_data()
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            df.to_csv(path, index=False)
     
-    # Fallback to disk if available
-    if os.path.exists(path):
-        print(f"[INFO] Loaded data from {path}")
-        return pd.read_csv(path)
+    # Optionally merge economic indicators
+    if include_economic and "country_code" in df.columns:
+        countries = df["country_code"].dropna().unique().tolist()
+        economic_df = fetch_economic_indicators_from_api(countries)
+        if not economic_df.empty:
+            df = df.merge(economic_df, on=["country_code", "year"], how="left")
+            print("[INFO] Merged economic indicators")
     
-    # Generate synthetic data as last resort
-    print("[INFO] Generating synthetic fallback data")
-    df = generate_synthetic_mobile_money_data()
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    df.to_csv(path, index=False)
     return df 

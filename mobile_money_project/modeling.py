@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+import optuna
+import shap
 
 
 def _build_forecast_pipeline(degree: int = 2) -> Pipeline:
@@ -143,3 +146,94 @@ def forecast_mobile_money(
     future[f"forecast_{target}"] = pipeline.predict(future[features]).round().astype(int)
     
     return future
+
+
+def tune_hyperparameters(df: pd.DataFrame, target: str | None = None) -> dict:
+    """Tune hyperparameters using Optuna."""
+    if target is None:
+        target = _get_target_column(df)
+    
+    features = _get_feature_columns(df)
+    df_clean = df[features + [target]].dropna()
+    
+    X = df_clean[features]
+    y = df_clean[target]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    def objective(trial):
+        n_estimators = trial.suggest_int('n_estimators', 50, 200)
+        max_depth = trial.suggest_int('max_depth', 3, 10)
+        learning_rate = trial.suggest_float('learning_rate', 0.01, 0.3)
+        
+        model = GradientBoostingRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            random_state=42
+        )
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        return mean_squared_error(y_test, y_pred)
+    
+    study = optuna.create_study(direction='minimize')
+    study.optimize(objective, n_trials=20)
+    
+    return study.best_params
+
+
+def compare_models(df: pd.DataFrame, target: str | None = None) -> dict:
+    """Compare different models."""
+    if target is None:
+        target = _get_target_column(df)
+    
+    features = _get_feature_columns(df)
+    df_clean = df[features + [target]].dropna()
+    
+    X = df_clean[features]
+    y = df_clean[target]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    models = {
+        'Linear Regression': LinearRegression(),
+        'Random Forest': RandomForestRegressor(random_state=42),
+        'Gradient Boosting': GradientBoostingRegressor(random_state=42)
+    }
+    
+    results = {}
+    for name, model in models.items():
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        results[name] = {
+            'mae': mean_absolute_error(y_test, y_pred),
+            'rmse': np.sqrt(mean_squared_error(y_test, y_pred)),
+            'r2': model.score(X_test, y_test)
+        }
+    
+    return results
+
+
+def explain_model(df: pd.DataFrame, pipeline: Pipeline, target: str | None = None) -> dict:
+    """Generate SHAP explanations."""
+    if target is None:
+        target = _get_target_column(df)
+    
+    features = _get_feature_columns(df)
+    df_clean = df[features + [target]].dropna()
+    
+    X = df_clean[features]
+    
+    # Get the model from pipeline
+    model = pipeline.named_steps['model']
+    
+    # Create explainer
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X)
+    
+    # Feature importance
+    feature_importance = dict(zip(features, np.abs(shap_values).mean(axis=0)))
+    
+    return {
+        'feature_importance': feature_importance,
+        'shap_values': shap_values.tolist(),
+        'feature_names': features
+    }
