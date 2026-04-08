@@ -1,0 +1,42 @@
+{
+  "model_type": "GradientBoostingRegressor",
+  "pipeline_steps": [
+    "poly",
+    "scaler",
+    "model"
+  ],
+  "features": [
+    "trend_factor",
+    "digital_inclusion_index",
+    "account_ratio"
+  ],
+  "target": "only_mobile_money_account",
+  "metrics": {
+    "mae": 0.5063120682689809,
+    "rmse": 1.0880502982530644,
+    "r2": 0.9879907183253802,
+    "train_size": 211,
+    "test_size": 53,
+    "target": "only_mobile_money_account"
+  },
+  "training_date": "2026-04-08T09:19:43.649027",
+  "data_shape": [
+    264,
+    13
+  ],
+  "data_columns": [
+    "country",
+    "country_code",
+    "year",
+    "both_accounts",
+    "only_financial_institution_account",
+    "only_mobile_money_account",
+    "financial_institution_share",
+    "mobile_money_share",
+    "mobile_growth_pct",
+    "financial_growth_pct",
+    "account_ratio",
+    "digital_inclusion_index",
+    "trend_factor"
+  ]
+}

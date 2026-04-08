@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-04-08T09:20:01.183834",
+  "model_exists": true,
+  "model_loadable": true,
+  "data_accessible": true,
+  "predictions_work": true,
+  "drift_detected": false,
+  "recommendations": [
+    "Model is healthy. No action required."
+  ],
+  "model_metadata": {
+    "model_type": "GradientBoostingRegressor",
+    "pipeline_steps": [
+      "poly",
+      "scaler",
+      "model"
+    ],
+    "features": [
+      "trend_factor",
+      "digital_inclusion_index",
+      "account_ratio"
+    ],
+    "target": "only_mobile_money_account",
+    "metrics": {
+      "mae": 0.5063120682689809,
+      "rmse": 1.0880502982530644,
+      "r2": 0.9879907183253802,
+      "train_size": 211,
+      "test_size": 53,
+      "target": "only_mobile_money_account"
+    },
+    "training_date": "2026-04-08T09:19:43.649027",
+    "data_shape": [
+      264,
+      13
+    ],
+    "data_columns": [
+      "country",
+      "country_code",
+      "year",
+      "both_accounts",
+      "only_financial_institution_account",
+      "only_mobile_money_account",
+      "financial_institution_share",
+      "mobile_money_share",
+      "mobile_growth_pct",
+      "financial_growth_pct",
+      "account_ratio",
+      "digital_inclusion_index",
+      "trend_factor"
+    ]
+  },
+  "current_data_shape": [
+    264,
+    13
+  ],
+  "sample_prediction": {
+    "trend_factor": 0.9583333333333334,
+    "digital_inclusion_index": 0.402410705,
+    "account_ratio": 3.3462764624374173,
+    "year": 2021,
+    "country": "Zimbabwe",
+    "forecast_only_mobile_money_account": 28
+  },
+  "health_score": 100.0,
+  "status": "healthy"
+}
