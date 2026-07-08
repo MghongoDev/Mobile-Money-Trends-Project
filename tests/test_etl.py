@@ -1,27 +1,30 @@
 import pandas as pd
 import pytest
-from pathlib import Path
 
-from mobile_money_project.etl import extract_mobile_money_data, transform_mobile_money_data
-
-
-def test_extract_mobile_money_data():
-    """Test data extraction from API or fallback."""
-    df = extract_mobile_money_data()
-    assert isinstance(df, pd.DataFrame)
-    assert not df.empty
-    assert "year" in df.columns
+from mobile_money_project.etl import extract, transform, run_mobile_money_etl
 
 
-def test_transform_mobile_money_data():
-    """Test data transformation."""
-    # Create sample data
-    sample_data = pd.DataFrame({
-        "country": ["TestCountry"],
-        "year": [2020],
-        "mobile_money_share": [0.1],
-        "financial_institution_share": [0.3]
-    })
-    transformed = transform_mobile_money_data(sample_data)
-    assert "mobile_growth_pct" in transformed.columns
-    assert "digital_inclusion_index" in transformed.columns
+@pytest.fixture
+def raw_frame() -> pd.DataFrame:
+    return extract(use_api=False)
+
+
+def test_extract_returns_dataframe(raw_frame):
+    assert isinstance(raw_frame, pd.DataFrame)
+    assert not raw_frame.empty
+    assert "year" in raw_frame.columns
+
+
+def test_transform_adds_features(raw_frame):
+    prepared = transform(raw_frame)
+    for col in ("mobile_growth_pct", "financial_growth_pct",
+                "account_ratio", "digital_inclusion_index", "trend_factor"):
+        assert col in prepared.columns
+
+
+def test_run_etl(raw_frame):
+    df, summary = run_mobile_money_etl(use_api=False)
+    assert "r2" not in summary  # summary dict is analytics, not model
+    assert "time_periods" in summary
+    assert "countries" in summary
+    assert summary["time_periods"] == len(df)
