@@ -23,7 +23,7 @@ from mobile_money_project.modeling import (
 
 st.set_page_config(
     page_title="Mobile Money Adoption",
-    page_icon="📱",
+    
     layout="wide",
 )
 
