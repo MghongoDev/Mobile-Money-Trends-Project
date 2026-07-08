@@ -1,14 +1,12 @@
-#  Mobile Money Adoption Analysis (Pure Python)
+#  Mobile Money Adoption Analysis 
 
-A 100 % Python project that analyses global mobile-money and financial-institution
+A project that analyses global mobile-money and financial-institution
 account adoption, trains a Gradient Boosting forecast model and serves the
 results through an interactive **Streamlit** dashboard.
 
 > Previously this repo mixed a static HTML/JS dashboard, Jupyter notebooks,
 > YAML CI workflows and a FastAPI server with the Python core. It has been
-> revamped into a single, cohesive Python-only application – every piece of
-> logic, UI and reporting is written in Python.
-
+> revamped into a single, cohesive Python-only application.
 ---
 
 ## Features
