@@ -1,29 +1,35 @@
-[project]
-name = "tryouts"
-version = "0.1.0"
-description = "Mobile money adoption trend analysis and forecasting project."
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "numpy>=2.0.0",
-    "pandas>=3.0.2",
-    "scikit-learn>=1.4.0",
-    "matplotlib>=3.9.0",
-    "seaborn>=0.13.0",
-    "requests>=2.33.1",
-    "pytest>=7.0.0",
-    "fastapi>=0.100.0",
-    "uvicorn>=0.20.0",
-    "schedule>=1.2.0",
-    "shap>=0.42.0",
-    "optuna>=3.0.0",
-]
-
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = ["api", "dashboard", "run_analysis"]
-packages = ["mobile_money_project"]
-include-package-data = false
+[project]
+name = "mobile-money-trends"
+version = "1.0.0"
+description = "Pure-Python mobile money adoption trend analysis and forecasting (Streamlit dashboard)."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Mobile Money Trends Project" }]
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scikit-learn>=1.4",
+    "matplotlib>=3.8",
+    "plotly>=5.18",
+    "requests>=2.31",
+    "shap>=0.44",
+    "optuna>=3.5",
+    "streamlit>=1.32",
+    "altair>=5.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[project.scripts]
+mobile-money = "mobile_money_project.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mobile_money_project*"]
