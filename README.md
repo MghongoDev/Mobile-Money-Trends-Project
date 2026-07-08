@@ -1,4 +1,4 @@
-# 📱 Mobile Money Adoption Analysis (Pure Python)
+#  Mobile Money Adoption Analysis (Pure Python)
 
 A 100 % Python project that analyses global mobile-money and financial-institution
 account adoption, trains a Gradient Boosting forecast model and serves the
@@ -13,17 +13,17 @@ results through an interactive **Streamlit** dashboard.
 
 ## Features
 
-- 🔌 **ETL** pipeline that fetches live data from [Our World in Data](https://ourworldindata.org)
+- **ETL** pipeline that fetches live data from [Our World in Data](https://ourworldindata.org)
   and falls back to a bundled CSV when offline.
-- 🧹 **Feature engineering** – growth rates, account ratios, digital-inclusion
+- **Feature engineering** – growth rates, account ratios, digital-inclusion
   index, time-trend factor.
-- 🤖 **Forecasting** with a `PolynomialFeatures + StandardScaler + GradientBoostingRegressor`
+- **Forecasting** with a `PolynomialFeatures + StandardScaler + GradientBoostingRegressor`
   pipeline, plus model comparison, hyper-parameter search and built-in feature
   importance.
-- 📊 **Interactive Streamlit dashboard** (`app.py`) with KPIs, Plotly charts,
+- **Interactive Streamlit dashboard** (`app.py`) with KPIs, Plotly charts,
   country drill-down, model inspection, forecast plotting and CSV downloads.
-- 🖥️ **CLI** entry point that trains the model and writes CSV/JSON outputs.
-- ✅ **Tests** written in pure Python (`pytest`).
+- **CLI** entry point that trains the model and writes CSV/JSON outputs.
+- **Tests** written in pure Python (`pytest`).
 
 ---
 
