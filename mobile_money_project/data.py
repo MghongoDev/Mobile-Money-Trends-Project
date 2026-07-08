@@ -1,165 +1,122 @@
-import os
+"""Data loading: fetch from Our World in Data API or fall back to bundled CSV."""
+from __future__ import annotations
+
+import io
+from pathlib import Path
 
 import pandas as pd
 import requests
 
+DATA_URL = (
+    "https://ourworldindata.org/grapher/"
+    "share-adults-bank-account-financial-institution-mobile-money.csv"
+    "?v=1&csvType=full&useColumnShortNames=true"
+)
+USER_AGENT = "mobile-money-trends/1.0 (pure-python)"
 
-def fetch_mobile_money_data_from_api() -> pd.DataFrame:
-    """Fetch real mobile money adoption data from Our World in Data API."""
-    url = "https://ourworldindata.org/grapher/share-adults-bank-account-financial-institution-mobile-money.csv?v=1&csvType=full&useColumnShortNames=true"
-    headers = {"User-Agent": "Mobile Money Analysis Project/1.0"}
-    
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+LOCAL_CSV = PROJECT_ROOT / "data" / "sample_mobile_money_data.csv"
+
+
+def fetch_mobile_money_data_from_api(url: str = DATA_URL) -> pd.DataFrame | None:
+    """Fetch live data from Our World in Data. Returns None on failure."""
     try:
-        df = pd.read_csv(url, storage_options={"User-Agent": headers["User-Agent"]})
-        
-        # Standardize column names
-        df = df.rename(columns={
-            "entity": "country",
-            "code": "country_code",
-        })
-        
-        # Calculate derived metrics
-        # Assume: financial_institution_share = only_financial_institution_account + both_accounts
-        # Assume: mobile_money_share = only_mobile_money_account + both_accounts
-        df["financial_institution_share"] = (
-            df.get("only_financial_institution_account", 0) + df.get("both_accounts", 0)
+        response = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            timeout=30,
         )
-        df["mobile_money_share"] = (
-            df.get("only_mobile_money_account", 0) + df.get("both_accounts", 0)
-        )
-        
-        # Keep essential columns
-        essential_cols = ["country", "country_code", "year"]
-        metric_cols = [col for col in df.columns if col not in essential_cols and df[col].notna().any()]
-        
-        df = df[essential_cols + metric_cols].copy()
-        df = df.dropna(subset=["year"])
-        df["year"] = df["year"].astype(int)
-        df = df.sort_values(["country", "year"]).reset_index(drop=True)
-        
-        print(f"[INFO] Successfully fetched {len(df)} records from Our World in Data")
-        return df
-    except Exception as e:
-        print(f"[WARNING] Failed to fetch from API: {e}. Using fallback sample data.")
+        response.raise_for_status()
+        df = pd.read_csv(io.StringIO(response.text))
+        return _normalize(df)
+    except Exception as exc:  # pragma: no cover - network-dependent
+        print(f"[data] API fetch failed ({exc}); falling back to local CSV")
         return None
 
 
-def fetch_economic_indicators_from_api(countries: list[str] = None) -> pd.DataFrame:
-    """Fetch real-time economic indicators from World Bank API."""
-    if countries is None:
-        countries = ["KEN", "ZAF", "NGA", "GHA"]  # Sample African countries
-    
-    indicators = {
-        "NY.GDP.PCAP.CD": "gdp_per_capita",
-        "FP.CPI.TOTL.ZG": "inflation_rate",
-        "SL.UEM.TOTL.ZS": "unemployment_rate"
-    }
-    
-    all_data = []
-    base_url = "http://api.worldbank.org/v2/country/{}/indicator/{}?format=json&per_page=1000"
-    
-    for country in countries:
-        for indicator_code, indicator_name in indicators.items():
-            url = base_url.format(country, indicator_code)
-            try:
-                response = requests.get(url, timeout=10)
-                response.raise_for_status()
-                data = response.json()
-                
-                if len(data) > 1 and data[1]:
-                    for entry in data[1]:
-                        if entry.get("value") is not None:
-                            all_data.append({
-                                "country": country,
-                                "indicator": indicator_name,
-                                "year": int(entry["date"]),
-                                "value": float(entry["value"])
-                            })
-            except Exception as e:
-                print(f"[WARNING] Failed to fetch {indicator_name} for {country}: {e}")
-    
-    if all_data:
-        df = pd.DataFrame(all_data)
-        df_pivot = df.pivot_table(
-            index=["country", "year"], 
-            columns="indicator", 
-            values="value"
-        ).reset_index()
-        print(f"[INFO] Successfully fetched economic indicators for {len(df_pivot)} country-year combinations")
-        return df_pivot
-    else:
-        print("[WARNING] No economic indicators fetched")
-        return pd.DataFrame()
+def _normalize(df: pd.DataFrame) -> pd.DataFrame:
+    """Standardise column names and compute derived share columns."""
+    rename = {}
+    if "Entity" in df.columns:
+        rename["Entity"] = "country"
+    if "entity" in df.columns:
+        rename["entity"] = "country"
+    if "Code" in df.columns:
+        rename["Code"] = "country_code"
+    if "code" in df.columns:
+        rename["code"] = "country_code"
+    if "Year" in df.columns:
+        rename["Year"] = "year"
+    if "year" in df.columns:
+        rename["year"] = "year"
+    df = df.rename(columns=rename)
+
+    if "only_financial_institution_account" not in df.columns:
+        # Fallback: older OWID used different column names
+        for old, new in {
+            "fin1a.t.d": "only_financial_institution_account",
+            "fin1a.t.m": "only_mobile_money_account",
+            "fin1a.t": "both_accounts",
+        }.items():
+            if old in df.columns:
+                df = df.rename(columns={old: new})
+
+    def _col(name: str):
+        return df[name] if name in df.columns else 0
+
+    both = _col("both_accounts")
+    only_fin = _col("only_financial_institution_account")
+    only_mob = _col("only_mobile_money_account")
+
+    df["financial_institution_share"] = only_fin + both
+    df["mobile_money_share"] = only_mob + both
+
+    essential = [c for c in ["country", "country_code", "year"] if c in df.columns]
+    others = [c for c in df.columns if c not in essential and df[c].notna().any()]
+    df = df[essential + others].copy()
+
+    if "year" in df.columns:
+        df = df.dropna(subset=["year"])
+        df["year"] = df["year"].astype(int)
+        sort_cols = [c for c in ["country", "year"] if c in df.columns]
+        df = df.sort_values(sort_cols).reset_index(drop=True)
+
+    return df
 
 
-def generate_synthetic_mobile_money_data(
-    start_date: str = "2016-01-01",
-    periods: int = 120,
-    freq: str = "MS",
-    seed: int = 42,
+def load_local_csv(path: Path = LOCAL_CSV) -> pd.DataFrame:
+    """Load the bundled CSV shipped with the repo."""
+    df = pd.read_csv(path)
+    return _normalize(df)
+
+
+def load_mobile_money_data(
+    path: str | Path = LOCAL_CSV,
+    use_api: bool = True,
+    persist: bool = True,
 ) -> pd.DataFrame:
-    """Generate a synthetic monthly dataset for mobile money analysis (fallback)."""
-    import numpy as np
-    
-    np.random.seed(seed)
-    dates = pd.date_range(start=start_date, periods=periods, freq=freq)
-    months = np.arange(periods)
+    """Load data: live API first, then local CSV fallback.
 
-    population = 45_000_000 + months * 155_000 + np.random.normal(0, 190_000, periods)
-    population = np.clip(population, 44_000_000, None)
+    Parameters
+    ----------
+    path : path to local CSV (used as cache / fallback)
+    use_api : whether to attempt a network fetch
+    persist : save successful API fetches back to the local CSV cache
+    """
+    path = Path(path)
+    df: pd.DataFrame | None = None
 
-    internet_penetration = np.clip(0.24 + 0.008 * months + np.random.normal(0, 0.01, periods), 0.1, 0.95)
-    smartphone_penetration = np.clip(0.18 + 0.010 * months + np.random.normal(0, 0.01, periods), 0.08, 0.9)
-    policy_support_index = np.clip(30 + 0.18 * months + np.random.normal(0, 3.0, periods), 25, 100)
+    if use_api:
+        df = fetch_mobile_money_data_from_api()
 
-    mobile_share = np.clip(0.03 + 0.0009 * months + 0.0003 * policy_support_index, 0.04, 0.65)
-    financial_share = np.clip(0.18 + 0.0004 * months + 0.00035 * internet_penetration, 0.18, 0.85)
+    if df is None or df.empty:
+        df = load_local_csv(path)
 
-    mobile_money_accounts = np.round(population * mobile_share).astype(int)
-    financial_institution_accounts = np.round(population * financial_share).astype(int)
-    account_gap = financial_institution_accounts - mobile_money_accounts
-
-    data = pd.DataFrame(
-        {
-            "date": dates,
-            "population": np.round(population).astype(int),
-            "internet_penetration": np.round(internet_penetration, 4),
-            "smartphone_penetration": np.round(smartphone_penetration, 4),
-            "policy_support_index": np.round(policy_support_index, 1),
-            "mobile_money_accounts": mobile_money_accounts,
-            "financial_institution_accounts": financial_institution_accounts,
-            "account_gap": account_gap,
-        }
-    )
-    return data
-
-
-def load_mobile_money_data(path: str = "data/sample_mobile_money_data.csv", include_economic: bool = False) -> pd.DataFrame:
-    """Load the mobile money dataset from API or disk fallback."""
-    # Try to fetch from API first
-    df = fetch_mobile_money_data_from_api()
-    
-    if df is not None and not df.empty:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        df.to_csv(path, index=False)
-    else:
-        # Fallback to disk if available
-        if os.path.exists(path):
-            print(f"[INFO] Loaded data from {path}")
-            df = pd.read_csv(path)
-        else:
-            # Generate synthetic data as last resort
-            print("[INFO] Generating synthetic fallback data")
-            df = generate_synthetic_mobile_money_data()
-            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    if persist and path is not None:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(path, index=False)
-    
-    # Optionally merge economic indicators
-    if include_economic and "country_code" in df.columns:
-        countries = df["country_code"].dropna().unique().tolist()
-        economic_df = fetch_economic_indicators_from_api(countries)
-        if not economic_df.empty:
-            df = df.merge(economic_df, on=["country_code", "year"], how="left")
-            print("[INFO] Merged economic indicators")
-    
-    return df 
+        except OSError:
+            pass
+
+    return df
