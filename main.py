@@ -1,5 +1,5 @@
-from run_analysis import main
-
+"""Convenience launcher: `python main.py` runs the CLI pipeline."""
+from mobile_money_project.cli import main
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

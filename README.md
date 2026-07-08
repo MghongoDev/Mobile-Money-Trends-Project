@@ -1,177 +1,130 @@
-# Mobile Money Adoption Analysis
+# 📱 Mobile Money Adoption Analysis (Pure Python)
 
-This is a machine learning project analyzing trends in mobile money and financial institution account adoption using real data from **Our World in Data**.
+A 100 % Python project that analyses global mobile-money and financial-institution
+account adoption, trains a Gradient Boosting forecast model and serves the
+results through an interactive **Streamlit** dashboard.
 
-## Key Findings
+> Previously this repo mixed a static HTML/JS dashboard, Jupyter notebooks,
+> YAML CI workflows and a FastAPI server with the Python core. It has been
+> revamped into a single, cohesive Python-only application – every piece of
+> logic, UI and reporting is written in Python.
 
-### Adoption Trends (2014-2022)
+---
 
-**Mobile Money** shows explosive growth globally:
-- **2014**: 6.08% average adoption
-- **2022**: 18.89% average adoption  
-- **Growth**: +210.6% over 8 years
+## Features
 
-**Financial Institution Accounts** experienced modest decline:
-- **2014**: 37.69% average adoption
-- **2022**: 32.05% average adoption
-- **Change**: -15.0%
+- 🔌 **ETL** pipeline that fetches live data from [Our World in Data](https://ourworldindata.org)
+  and falls back to a bundled CSV when offline.
+- 🧹 **Feature engineering** – growth rates, account ratios, digital-inclusion
+  index, time-trend factor.
+- 🤖 **Forecasting** with a `PolynomialFeatures + StandardScaler + GradientBoostingRegressor`
+  pipeline, plus model comparison, hyper-parameter search and built-in feature
+  importance.
+- 📊 **Interactive Streamlit dashboard** (`app.py`) with KPIs, Plotly charts,
+  country drill-down, model inspection, forecast plotting and CSV downloads.
+- 🖥️ **CLI** entry point that trains the model and writes CSV/JSON outputs.
+- ✅ **Tests** written in pure Python (`pytest`).
 
-This suggests mobile money is expanding the financial inclusion frontier, particularly in regions underserved by traditional banking.
+---
 
-### Top Countries by Mobile Money Adoption (2022)
-
-1. **Eswatini**: 56.7%
-2. **Lesotho**: 45.9%
-3. **Botswana**: 36.6%
-4. **Democratic Republic of Congo**: 22.7%
-5. **Madagascar**: 19.0%
-
-Most adoption leaders are in sub-Saharan Africa, where mobile networks enabled rapid financial inclusion.
-
-### Model Insights
-
-The gradient boosting regression model trained on 211 samples achieved excellent predictive accuracy on 53 test cases:
-
-| Metric | Value |
-|--------|-------|
-| **R-squared** | 0.9880 |
-| **MAE** | 0.5063 |
-| **RMSE** | 1.0881 |
-
-High R² indicates mobile money adoption patterns are highly predictable using historical trends, digital inclusion metrics, and account ratios.
-
-### Dataset Overview
-
-- **Data Source**: Our World in Data
-- **Total Records**: 264
-- **Countries**: 103
-- **Time Period**: 2014-2022
-
-## Data Source
-
-The project automatically fetches adoption data from:
-- **API**: ourworldindata.org (share-adults-bank-account-financial-institution-mobile-money)
-- **Metrics**:
-  - Mobile money account adoption share (%)
-  - Financial institution account adoption share (%)
-  - Dual account ownership
-
-## Architecture
+## Project structure (all source files are `.py`)
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Extract   │ -> │  Transform  │ -> │    Load     │
-│             │    │             │    │             │
-│ - API Data  │    │ - Cleaning  │    │ - Analysis  │
-│ - Economic  │    │ - Features  │    │ - Modeling  │
-│   Indicators│    │             │    │             │
-└─────────────┘    └─────────────┘    └─────────────┘
-       │                   │                   │
-       v                   v                   v
-   dashboard.py        api.py           modeling.py
+├── app.py                       # Streamlit dashboard (main UI)
+├── main.py                      # `python main.py` -> CLI pipeline
+├── run_analysis.py              # alias to CLI for backwards compat
+├── pyproject.toml               # PEP 621 project metadata
+├── mobile_money_project/
+│   ├── __init__.py
+│   ├── cli.py                   # CLI entry point
+│   ├── data.py                  # fetch/load data
+│   ├── preprocessing.py         # cleaning & feature engineering
+│   ├── analysis.py              # summaries & top-N country analytics
+│   ├── modeling.py              # training, forecasting, comparison, SHAP-style importance
+│   └── etl.py                   # orchestrates extract/transform/load
+├── tests/
+│   ├── test_etl.py
+│   └── test_modeling.py
+├── data/
+│   └── sample_mobile_money_data.csv   # bundled fallback dataset
+└── results/                     # output CSVs/JSON written by CLI
 ```
 
-## Project Structure
+Data files (`data/*.csv`, `results/*.csv`) remain CSV because they are
+*data*, not source code – but every piece of executable logic is Python.
 
-- `mobile_money_project/`
-  - `data.py`: API fetching from Our World in Data + World Bank + caching
-  - `preprocessing.py`: feature engineering and data cleaning
-  - `analysis.py`: trend summaries and statistics
-  - `modeling.py`: gradient boosting regression forecasting + model comparison
-- `run_analysis.py`: main analysis pipeline
-- `dashboard.py`: HTML dashboard generator
-- `api.py`: FastAPI REST endpoints
-- `notebooks/mobile_money_trends.ipynb`: interactive exploration
-- `tests/`: unit and integration tests
-- `docs/`: detailed documentation
-- `data/`: auto-downloaded datasets
-- `results/`: forecasts and model metrics
+---
 
-## API Endpoints
-
-The project includes a REST API built with FastAPI:
-
-- `GET /`: Root endpoint with API info
-- `GET /summary`: Global summary statistics
-- `GET /forecast?horizon=12`: Forecast data with configurable horizon
-- `GET /country/{country}`: Country-specific data and summary
-- `GET /dashboard`: Generated HTML dashboard
-
-Run the API with: `uvicorn api:app --reload`
-
-## Testing
-
-Run tests with pytest:
+## Quick start
 
 ```bash
+# 1. create a virtualenv and install the package
+pip install -e ".[dev]"
+
+# 2. run the interactive dashboard
+streamlit run app.py
+
+# 3. or run the CLI pipeline to regenerate results/*.csv
+python main.py --horizon 12
+
+# 4. run the tests
 pytest
 ```
 
-Tests cover ETL pipeline, model training, and API endpoints.
+### CLI options
 
-## Getting Started
-
-1. Install dependencies and set up the development environment:
-
-```bash
-uv sync
-uv pip install -e .
+```
+python main.py --help
 ```
 
-2. Run the pipeline:
+| Flag              | Description                                            |
+|-------------------|--------------------------------------------------------|
+| `--data PATH`     | Input CSV path (defaults to bundled sample)            |
+| `--results-dir D` | Output directory (default `results/`)                  |
+| `--horizon N`     | Forecast horizon in years (default 12)                 |
+| `--no-api`        | Skip the live Our World in Data fetch (offline mode)   |
+
+### Dashboard
+
+Launch with `streamlit run app.py` and open <http://localhost:8501>.
+The sidebar lets you:
+
+- toggle live API fetches,
+- choose the forecast horizon,
+- switch between the **Global trends**, **Country explorer**, **Model**,
+  **Forecast** and **Raw data** tabs.
+
+All charts are Plotly figures rendered directly from pandas DataFrames – no
+JavaScript templates, no HTML boilerplate.
+
+---
+
+## Model summary
+
+The default model is a scikit-learn `Pipeline`:
+
+1. `PolynomialFeatures(degree=2)`
+2. `StandardScaler`
+3. `GradientBoostingRegressor`
+
+With the bundled dataset it typically achieves **R² ≈ 0.99** on a time-based
+holdout, predicting `only_mobile_money_account` from the engineered features
+(`trend_factor`, `digital_inclusion_index`, `account_ratio`, growth rates, …).
+
+---
+
+## Data source
+
+Our World in Data – *Share of adults with a bank account, financial
+institution account or mobile money account*
+([owid.cloud](https://ourworldindata.org/grapher/share-adults-bank-account-financial-institution-mobile-money)).
+
+---
+
+## Testing
 
 ```bash
-python main.py
+pytest -q
 ```
 
-Output:
-- `results/backtest_results.csv` - model validation metrics
-- `results/mobile_money_forecast.csv` - 12-year forward forecast
-- `data/sample_mobile_money_data.csv` - cached API data
-
-3. Open the notebook:
-
-```bash
-notebooks/mobile_money_trends.ipynb
-```
-
-4. Generate the interactive dashboard HTML:
-
-```bash
-python dashboard.py
-```
-
-5. Run the API:
-
-```bash
-uvicorn api:app --reload
-```
-
-## Deployment
-
-### Local Development
-
-Run the API locally with uvicorn:
-
-```bash
-uvicorn api:app --reload
-```
-
-The dashboard can be generated and served via the API endpoint `/dashboard`.
-
-## Interactive Dashboard
-
-The dashboard is generated from Python and HTML only, using the same ETL pipeline as the analysis script.
-- Explore mobile money vs financial account share trends
-- Inspect digital inclusion and account gaps
-- View forecast metrics and backtest results
-- Filter by country and download filtered CSV output
-
-## Key Features
-
-- Real-world adoption data from 100+ countries
-- Automatic API caching to disk
-- Feature engineering (growth rates, ratios, digital inclusion indices)
-- Gradient boosting model with 98.8% test R²
-- 12-year forward forecasting capability
-- Interactive visualizations in Jupyter notebook
+Tests cover ETL extraction/transformation and model training/forecasting.
