@@ -216,7 +216,11 @@ def tune_hyperparameters(df: pd.DataFrame, target: str | None = None, n_trials: 
 
 
 def explain_model(df: pd.DataFrame, pipeline: Pipeline, target: str | None = None) -> dict:
-    """Permutation-free feature importance via the model's built-in importances."""
+    """Aggregate feature importances from the final estimator back to base features.
+
+    Works whether or not the pipeline contains a ``PolynomialFeatures`` step
+    (the step is optional since we default to ``degree=1`` which skips it).
+    """
     if target is None:
         target = _get_target_column(df)
     features = _available_features(df)
@@ -224,15 +228,25 @@ def explain_model(df: pd.DataFrame, pipeline: Pipeline, target: str | None = Non
     importances = getattr(model, "feature_importances_", None)
     if importances is None:
         return {"feature_importance": {f: 0.0 for f in features}}
-    # Poly expansion changes feature count; aggregate by base feature name
-    poly = pipeline.named_steps["poly"]
-    expanded_names = poly.get_feature_names_out(features)
+
     agg: dict[str, float] = {f: 0.0 for f in features}
-    for name, imp in zip(expanded_names, importances):
-        for base in features:
-            if base in name:
-                agg[base] += float(imp)
-                break
+
+    if "poly" in pipeline.named_steps:
+        poly = pipeline.named_steps["poly"]
+        expanded_names = poly.get_feature_names_out(features)
+        for name, imp in zip(expanded_names, importances):
+            for base in features:
+                if base in name:
+                    agg[base] += float(imp)
+                    break
+    else:
+        if len(importances) == len(features):
+            for base, imp in zip(features, importances):
+                agg[base] = float(imp)
+        else:
+            for base in features:
+                agg[base] = float(np.mean(importances))
+
     total = sum(agg.values()) or 1.0
     agg = {k: v / total for k, v in agg.items()}
     return {"feature_importance": agg}
