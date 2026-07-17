@@ -33,3 +33,6 @@ mobile-money = "mobile_money_project.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["mobile_money_project*"]
+package-mode = false
+
+
